@@ -10,18 +10,28 @@
 #include <unordered_map>
 #include <array>
 #include <random>
+#include <chrono>
+#include <thread>
 //Namespaces
 using namespace std;
 using namespace SDL_Render_Image;
 using namespace T;
 using namespace button;
+using namespace std::chrono;
+using namespace std::this_thread;
 //Global Variables
 char* font_path = "C:/Users/studentadmin/CLionProjects/SDL2TEST/font.ttf";
 int mousex;
 int mousey;
 
-// FUnctions
+// Functions
 // Checks if a specific key is pressed
+struct NPC
+{
+    int x;
+    int y;
+    steady_clock::time_point spawntime;
+};
 bool checkKey(char* key, SDL_Event event)
 {
     if (event.type == SDL_KEYDOWN)
@@ -45,7 +55,7 @@ void updatemousepos(SDL_Event event)
 int main(int argc, char* argv[])
 {
     //Variables (Local)
-    unordered_map<int,array<int,2>> npcpos;
+    unordered_map<int,NPC> npcpos;
     unordered_map<int, unordered_map<int, array<int, 4>>> spritePos;
     int direction = 3; //Forward:0, Left:1,Right:2,Back:3
     int animationnum = 1;
@@ -57,7 +67,7 @@ int main(int argc, char* argv[])
     int maxnpc = 3;
     random_device rd;
     mt19937 gen(rd());
-    discrete_distribution<> npcdistribuition {99.999 ,0.001};
+    discrete_distribution<> npcdistribuition {99.999 ,0.1};
     uniform_int_distribution<> npccoordsgen;
     int npccount = 0;
     char* mode = "home";
@@ -115,13 +125,13 @@ int main(int argc, char* argv[])
     while (true)
     {
         // Generate NPC
-        if (npcdistribuition(gen))
+        if (npcdistribuition(gen) &&  npccount < maxnpc)
         {
-            npcpos[npccount] = {npccoordsgen(gen)%401,npccoordsgen(gen)%401};
+            npcpos[npccount] = NPC{npccoordsgen(gen)%401,npccoordsgen(gen)%401,steady_clock::now()};
             npccount++;
             cout << "NPC Number " << npccount << " generated at ("
-     << npcpos[npccount-1][0] << ", "
-     << npcpos[npccount-1][1] << ")" << endl;
+     << npcpos[npccount-1].x << ", "
+     << npcpos[npccount-1].y << ")" << endl;
 
 
         }
@@ -182,10 +192,18 @@ int main(int argc, char* argv[])
         SDL_RenderClear(renderer);
 
         render_image.showImage(renderer,player,playerx,400-playery-50,50,50,shown[0],shown[1],shown[2],shown[3],spriteflip);
-        for (auto i:npcpos)
-                {
-                    render_image.showImage(renderer,npc,i.second[0],i.second[1],50,50,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
-                }
+        for (auto i = npcpos.begin(); i != npcpos.end();)
+        {
+            auto lifespanelapsed = duration_cast<seconds>(steady_clock::now() - i->second.spawntime).count();
+            //Despawn npc after 30s
+            if (lifespanelapsed > 30)
+            {   cout << "Despawned" << endl;
+                i = npcpos.erase(i);
+            }else {
+                render_image.showImage(renderer,npc,i->second.x,i->second.y,50,50,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+                ++i;
+            }
+        }
         SDL_RenderPresent(renderer);
         //Limit Fps
         uint32_t frameTimeEnd = SDL_GetTicks();
