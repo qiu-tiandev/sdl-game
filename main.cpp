@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
     random_device rd;
     mt19937 gen(rd());
     discrete_distribution<> npcdistribuition {99.999 ,0.1};
-    uniform_int_distribution<> npccoordsgen;
+    uniform_int_distribution<> npccoordsgen(30,370);
     int npccount = 0;
     char* mode = "home";
     //Init sprite animations and positions
@@ -127,7 +127,23 @@ int main(int argc, char* argv[])
         // Generate NPC
         if (npcdistribuition(gen) &&  npccount < maxnpc)
         {
-            npcpos[npccount] = NPC{npccoordsgen(gen)%351,npccoordsgen(gen)%351,steady_clock::now()};
+            int npcx = npccoordsgen(gen);
+            int npcy = npccoordsgen(gen);
+            for (auto i : npcpos)
+            {
+                auto dist = pow((i.second.x-npcx),2)+pow((i.second.y-npcy),2);
+                if (dist < 4000)
+                {
+                    while(dist <4000)
+                    {
+                        npcx = npccoordsgen(gen);
+                        npcy = npccoordsgen(gen);
+                        dist = pow(i.second.x-npcx,2)+pow(i.second.y-npcy,2);
+                    }
+                }
+
+            }
+            npcpos[npccount] = NPC{npccoordsgen(gen),npccoordsgen(gen),steady_clock::now()};
             npccount++;
             cout << "NPC Number " << npccount << " generated at ("
      << npcpos[npccount-1].x << ", "
