@@ -200,6 +200,7 @@ int main(int argc, char* argv[])
             {   cout << "Despawned" << endl;
                 i = npcpos.erase(i);
             }else {
+                npccount--;
                 render_image.showImage(renderer,npc,i->second.x,i->second.y,50,50,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
                 ++i;
             }
