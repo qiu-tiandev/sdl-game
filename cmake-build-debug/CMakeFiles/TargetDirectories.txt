@@ -1,0 +1,3 @@
+C:/Users/studentadmin/CLionProjects/SDL2TEST/cmake-build-debug/CMakeFiles/SDL2TEST.dir
+C:/Users/studentadmin/CLionProjects/SDL2TEST/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/studentadmin/CLionProjects/SDL2TEST/cmake-build-debug/CMakeFiles/rebuild_cache.dir
