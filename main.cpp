@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
         // Generate NPC
         if (npcdistribuition(gen) &&  npccount < maxnpc)
         {
-            npcpos[npccount] = NPC{npccoordsgen(gen)%401,npccoordsgen(gen)%401,steady_clock::now()};
+            npcpos[npccount] = NPC{npccoordsgen(gen)%351,npccoordsgen(gen)%351,steady_clock::now()};
             npccount++;
             cout << "NPC Number " << npccount << " generated at ("
      << npcpos[npccount-1].x << ", "
@@ -197,10 +197,11 @@ int main(int argc, char* argv[])
             auto lifespanelapsed = duration_cast<seconds>(steady_clock::now() - i->second.spawntime).count();
             //Despawn npc after 30s
             if (lifespanelapsed > 30)
-            {   cout << "Despawned" << endl;
+            {
+                npccount--;
+                cout << "Despawned" << endl;
                 i = npcpos.erase(i);
             }else {
-                npccount--;
                 render_image.showImage(renderer,npc,i->second.x,i->second.y,50,50,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
                 ++i;
             }
