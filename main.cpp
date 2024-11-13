@@ -82,11 +82,11 @@ bool playerNearNpc(int playerx, int playery, int npcx, int npcy)
             playergrids.insert(make_pair(originalgridplayerx+x, originalgridplayery+y));
         }
     }
-    for(auto i:playergrids)
+    for(auto i:npcgrids)
     {
-        if (npcgrids.contains(i)) // for every grid that the player occupy, we check if it contains the same grid that the player occupy`
+        if (playergrids.find(i) != playergrids.end()) // for every grid that the player occupy, we check if it contains the same grid that the player occupy`
         {
-            cout << "Detedcted" << endl;
+            cout << "Detected" << endl;
             return true;
         }
     }
