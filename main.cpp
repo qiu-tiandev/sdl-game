@@ -12,6 +12,7 @@
 #include <random>
 #include <chrono>
 #include <thread>
+#include <filesystem>
 //Namespaces
 using namespace std;
 using namespace SDL_Render_Image;
@@ -19,6 +20,7 @@ using namespace T;
 using namespace button;
 using namespace std::chrono;
 using namespace std::this_thread;
+using namespace filesystem;
 //Global Variables
 char* font_path = "C:/Users/studentadmin/CLionProjects/SDL2TEST/font.ttf";
 int mousex;
@@ -104,8 +106,8 @@ int main(int argc, char* argv[])
     RenderImage render_image;
     RenderText rendertext;
     SDL_RendererFlip spriteflip = SDL_FLIP_NONE;
-    SDL_Texture* npc = render_image.createTexture(renderer,"C:/Users/studentadmin/CLionProjects/SDL2TEST/image.png");
-    SDL_Texture* player = render_image.createTexture(renderer,"C:/Users/studentadmin/CLionProjects/SDL2TEST/player_updated.png");
+    SDL_Texture* npc = render_image.createTexture(renderer,"../image.png");
+    SDL_Texture* player = render_image.createTexture(renderer,"../player_updated.png");
     uint32_t frameStart = SDL_GetTicks();
     uint32_t frameCount = 0;
     //Home Screen
