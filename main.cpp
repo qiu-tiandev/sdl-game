@@ -13,6 +13,8 @@
 #include <chrono>
 #include <thread>
 #include <filesystem>
+#include <set>
+#include <vector>
 //Namespaces
 using namespace std;
 using namespace SDL_Render_Image;
@@ -20,7 +22,7 @@ using namespace T;
 using namespace button;
 using namespace std::chrono;
 using namespace std::this_thread;
-using namespace filesystem;
+using namespace std::filesystem;
 //Global Variables
 char* font_path = "C:/Users/studentadmin/CLionProjects/SDL2TEST/font.ttf";
 int mousex;
@@ -53,6 +55,42 @@ void updatemousepos(SDL_Event event)
         mousex = event.motion.x;
         mousey = event.motion.y;
     }
+}
+//Check If Player is close to a npc, this is kind of hard to understand so step by step comments will be provided
+bool playerNearNpc(int playerx, int playery, int npcx, int npcy)
+{
+    int gridsize = 25; //we draw invisible grids on the window
+    set<pair<int,int>> npcgrids; // we store all places where player can be considered near to the npc in this array
+    //we append all grids
+    int originalgridnpcx = npcx/gridsize;
+    int originalgridnpcy = npcy/gridsize;
+    for (int x = 0; x < 4; x++)
+    {
+        for (int y = 0; y < 4; y++)
+        {
+            npcgrids.insert(make_pair(originalgridnpcx+x, originalgridnpcy+y));
+        }
+    }
+    set<pair<int,int>>playergrids;
+    //We do the same for the player
+    int originalgridplayerx = playerx/gridsize;
+    int originalgridplayery = playery/gridsize;
+    for (int x=0; x<2;x++)
+    {
+        for (int y=0; y<2;y++)
+        {
+            playergrids.insert(make_pair(originalgridplayerx+x, originalgridplayery+y));
+        }
+    }
+    for(auto i:playergrids)
+    {
+        if (npcgrids.contains(i)) // for every grid that the player occupy, we check if it contains the same grid that the player occupy`
+        {
+            cout << "Detedcted" << endl;
+            return true;
+        }
+    }
+    return false;
 }
 int main(int argc, char* argv[])
 {
@@ -205,6 +243,14 @@ int main(int argc, char* argv[])
             }
         }
         array<int ,4> shown =spritePos[direction][animationnum];
+        //Check if the player is near the npc
+        for (auto i: npcpos)
+        {
+            if (playerNearNpc(playerx, playery, i.second.x, i.second.y))
+            {
+                cout << "Player is near NPC at (" << i.second.x << ", " << i.second.y << ")" << endl;
+            }
+        }
         //Show All Textures
         SDL_SetRenderDrawColor(renderer, 255, 120, 0, 255);
         SDL_RenderClear(renderer);
