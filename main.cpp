@@ -221,6 +221,7 @@ int main(int argc, char* argv[])
     RenderText rendertext;
     TTF_Init();
     SDL_RendererFlip spriteflip = SDL_FLIP_NONE;
+    SDL_Texture* background = render_image.createTexture(renderer, "../Grassfield.png");
     SDL_Texture* npc = render_image.createTexture(renderer,"../image.png");
     SDL_Texture* player = render_image.createTexture(renderer,"../player_updated.png");
     SDL_Texture* luckyblock = render_image.createTexture(renderer,"../image.png");
@@ -398,6 +399,7 @@ int main(int argc, char* argv[])
             SDL_SetRenderDrawColor(renderer, 196, 220, 195, 255);
             //Render Things below this code
             SDL_RenderClear(renderer);
+            render_image.showImage(renderer,background,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
             if (trade)rendertext.DrawText(renderer,tradetexture,175,400,250,60);trade=false;
             render_image.showImage(renderer,player,playerx,playery,50,50,shown[0],shown[1],shown[2],shown[3],spriteflip);
             for (auto i = npcpos.begin(); i != npcpos.end();)
