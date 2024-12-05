@@ -2,7 +2,9 @@
 // Created by qiu_tian on 5/11/2024.
 //
 #include <RenderImage.h>
+#include <iostream>
 using namespace SDL_Render_Image;
+using namespace std;
 SDL_Texture* RenderImage::createTexture(SDL_Renderer* renderer, char* path)
 {
     SDL_Surface* surface = IMG_Load(path);
