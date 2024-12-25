@@ -11,7 +11,13 @@ using namespace std;
 vector<Button*> Button::buttons;
 Button::Button(SDL_Renderer* renderer, char* path, int x, int y, int w, int h)
 {
-    surface = IMG_Load(path);
+    if (!path)
+    {
+        surface = SDL_CreateRGBSurface(0, w, h, 32, 0, 0, 0, 0);
+    }else
+    {
+        surface = IMG_Load(path);
+    }
     texture = SDL_CreateTextureFromSurface(renderer, surface);
     if (!w|!h)
     {
@@ -50,13 +56,13 @@ void Button::load(SDL_Renderer* renderer, char* path, int x, int y, int w, int h
 
 bool Button::checkHover(int mousex, int mousey)
 {
-    return mousex >= rect.x && mousex <= rect.x + 200 &&
-           mousey >= rect.y && mousey <= rect.y + 95;
+    return mousex >= rect.x && mousex <= rect.x + rect.w &&
+           mousey >= rect.y && mousey <= rect.y + rect.h;
 }
 bool Button::checkClick(SDL_Event event, int mousex, int mousey)
 {
-    return event.type== SDL_MOUSEBUTTONDOWN&&mousex >= rect.x && mousex <= rect.x + 150 &&
-           mousey >= rect.y && mousey <= rect.y + 100;
+    return event.type== SDL_MOUSEBUTTONDOWN&&mousex >= rect.x && mousex <= rect.x + rect.w &&
+           mousey >= rect.y && mousey <= rect.y + rect.h;
 }
 void Button::destroyAll()
 {
