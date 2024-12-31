@@ -43,7 +43,8 @@ struct NPC
     int x;
     int y;
     steady_clock::time_point spawntime;
-    struct type;
+    vector<vector<int>>trades;
+    bool scammer;
 };
 struct Monster
 {
@@ -54,12 +55,35 @@ struct Monster
     int speed;
     int despawntime;
 };
+void stealTwoOfFirstItem(map<int, pair<int, int>>& inventory) {
+    // Find the first item in the inventory that is not empty
+    for (auto& slot : inventory) {
+        if (slot.second.first != -1 && slot.second.second > 0) {
+            // This is the first item to steal
+            int itemToSteal = slot.second.first;
+
+            // Remove two of that item from the inventory
+            slot.second.second -= 2; // Remove two items
+            if (slot.second.second <= 0) {
+                slot.second.first = -1; // Mark slot as empty if count is zero
+            }
+            return;
+        }
+    }
+
+    // If no items were found to steal
+    cout << "No items to steal!" << endl;
+}
+void showFakeDeath()
+{
+
+}
 void addInventory(int item,int count)
 {
     auto found = false;
     for (auto& i:inventory)
     {
-        if (i.second.first == item)
+        if (i.second.first == item && i.second.second+count <=16)
         {
             i.second.second+=count;
             cout << i.first << ": " << i.second.first <<", "<< i.second.second << endl;
@@ -84,6 +108,25 @@ void addInventory(int item,int count)
 int getTextHeight(char* text,int width)
 {
     return width/0.8*strlen(text);
+}
+array<int,2> queryTextDimensions(char* text, char* fontpath)
+{
+    int w,h;
+    TTF_Font* font = TTF_OpenFont(fontpath, 16);
+    SDL_Surface* surface = TTF_RenderText_Solid(font,text,SDL_Color{255,255,255});
+    TTF_CloseFont(font);
+    w = surface->w;
+    h = surface->h;
+    SDL_FreeSurface(surface);
+    return {w,h};
+}
+bool hasRequiredItems(const map<int, pair<int, int>>& inventory, int itemID, int requiredCount) {
+    for (const auto& slot : inventory) {
+        if (slot.second.first == itemID && slot.second.second >= requiredCount) {
+            return true; // Found the required item with enough count
+        }
+    }
+    return false; // Required item not found
 }
 void showLoading(SDL_Renderer* renderer,SDL_Event event, char* loadtext,char* fontpath, auto textrenderer,int duration,auto textures)
 {
@@ -135,16 +178,20 @@ bool checkKey(char* key, SDL_Event event)
     }
     return false;
 }
-void moveMonster(Monster& monster,int playerx,int playery,mt19937 gen,discrete_distribution<>move)
+void moveMonster(Monster& monster,int playerx,int playery,int& cycle,SDL_RendererFlip& flip, int reqcycle)
 {
-    if (move(gen))
+    if (cycle == reqcycle)
     {
+        cycle =0;
         if (monster.x < playerx)
         {
             monster.x+=monster.speed;
+            flip = SDL_FLIP_HORIZONTAL;
+
         }else if (monster.x > playerx)
         {
             monster.x-=monster.speed;
+            flip = SDL_FLIP_NONE;
         }
         if (monster.y < playery)
         {
@@ -154,6 +201,7 @@ void moveMonster(Monster& monster,int playerx,int playery,mt19937 gen,discrete_d
             monster.y-=monster.speed;
         }
     }
+    cycle++;
 }
 //Check for collision
 bool checkCollision(int x1, int y1, int width1, int height1, int x2, int y2, int width2, int height2){
@@ -239,6 +287,15 @@ int main(int argc, char* argv[])
     unordered_map<char*,array<int,4>>potionpos;
     map<int,array<int,4>>selectedpos;
     unordered_map<char*,char*>decmsgs;
+    unordered_map<int,char*>itemidNames;
+    map<int,SDL_Texture*>numbers;
+    itemidNames[0] = "Slowness Potion";
+    itemidNames[1] = "Speed Potion";
+    itemidNames[2] = "Diamond";
+    itemidNames[3] = "Trash";
+    itemidNames[4] = "Dirt ball";
+    itemidNames[5] = "Gem";
+    itemidNames[6] = "Money";
     array<array<int,2>,3>tradeguipos = {{{0,0},{0,96},{0,192}}};
     decmsgs["Tp"] = "Oh no! It looks like the lucky block\nwas placed by the monster!\n You have been teleported to the monster.";
     decmsgs["Speed"] = "Oh no! The lucky block\n was a evil lucky block!\n The lucky block gave the monster a speed increase\nfor 7s";
@@ -249,10 +306,30 @@ int main(int argc, char* argv[])
         selectedpos[i] = {(i-1)*55+47,500,22,22};
     }
     unordered_map<int,char*>items;
-    map<int,map<int,int>> trades; //store trades available here
-    map<int,int> temp1;
-    map<int,int> temp2;
-    //TODO: Add trades into here
+    map<int,vector<int>> trades; //store trades available here
+    map<int,vector<int>>scamtrades;
+    vector<vector<int>> tradebutpos;
+    for (int i = 0; i<3;i++)
+    {
+        tradebutpos.push_back({80*i,0,80,19});
+    }
+    trades[1] = {3,12,5,1};
+    trades[2] = {4,7,3,2};
+    trades[3] = {5,3,2,1};
+    trades[4] = {5,1,0,1};
+    trades[5] = {5,1,1,1};
+    trades[6] = {3,1,3,1};//troll trade
+    trades[7] = {4,1,4,1};//troll trade
+    trades[8] = {2,1,4,1};//troll trade
+    trades[9] = {0,1,3,8};
+    trades[10] = {1,1,3,8};
+    scamtrades[1] = {3,6,0,1};
+    scamtrades[2] = {3,9,5,1};
+    scamtrades[3] = {5,2,2,1};
+    scamtrades[4] = {4,5,3,2};
+    scamtrades[5] = {0,1,3,10};
+    scamtrades[6] = {1,1,3,10};
+    scamtrades[7] = {3,8,0,1};
     map<int,SDL_Texture*> itemTextures; //store sdl textures of items inside this map
     vector<int> invkey = {1,2,3,4,5,6,7,8,9};
     items[0] = "a";items[1] ="b",items[2] ="c";items[3]="d";items[4] = "e";items[5]="f";items[6]="g";items[7]="h";
@@ -263,7 +340,7 @@ int main(int argc, char* argv[])
     int playerx =10;
     int playery = 10;
     int movementcycles = 0;
-    int maxnpc = 1;
+    int maxnpc = 3;
     int maxluckyblock = 10;
     int luckyblockcount = 0;
     bool trade = false;
@@ -288,7 +365,20 @@ int main(int argc, char* argv[])
     bool fastmonster = false;
     bool applyluckydeceff = false;
     int tradeguistatus = 0;
-    bool tradeselected = false;;
+    bool tradeselected = false;
+    bool deceptiontimerset = false;
+    int currentNpcId = -1;
+    bool npcnearfound = false;
+    bool tradebuttonclick = false;
+    bool handletrade = false;
+    bool showTraderScamMsg = false;
+    int scamdisopacity = 0;
+    int monstermovementcycle = 0;
+    int monstercyclereq = 11;
+    int level = 1;
+    bool obtainedgenerated = true;
+    vector<int> tradeno1;
+    vector<int> tradeno2;
     random_device rd;
     mt19937 gen(rd());
     discrete_distribution<> npcdistribuition {99.999 ,0.1};
@@ -302,6 +392,11 @@ int main(int argc, char* argv[])
     discrete_distribution<> traderTypegen(traderTypepos.begin(),traderTypepos.end());
     array<char*,9>luckydecconsq = {"Tp","Speed","Slow","Damage","Death","Monster","Steal","Clear","MulSteal"};
     discrete_distribution<>luckydeccongen{30,60,60,60,10,30,60,60,30};
+    uniform_int_distribution<>tradegen{1,10};
+    discrete_distribution<> scam{0,20};
+    uniform_int_distribution<>scamtradesgen{1,7};
+    uniform_int_distribution<>luckyblockpre{0,6};
+    discrete_distribution<>luckyblockitemgen{53,20,9,6,6,4,2};
     int npccount = 0;
     char* mode = "home";
     //Init sprite animations and positions
@@ -331,7 +426,7 @@ int main(int argc, char* argv[])
     //SDL INIT
     SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO);
     IMG_Init(IMG_INIT_PNG|IMG_INIT_JPG|IMG_INIT_WEBP);
-    SDL_Window* window = SDL_CreateWindow("Game",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,600,600,SDL_WINDOW_RESIZABLE);
+    SDL_Window* window = SDL_CreateWindow("Game",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,600,600,SDL_WINDOW_RESIZABLE|SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_Event event;
     //SELF DEV LIB INIT
@@ -341,16 +436,17 @@ int main(int argc, char* argv[])
     RenderText rendertext;
     TTF_Init();
     SDL_RendererFlip spriteflip = SDL_FLIP_NONE;
+    SDL_RendererFlip monstermoveflip = SDL_FLIP_NONE;
     SDL_Texture* background = render_image.createTexture(renderer, "../Grassfield.png");
-    SDL_Texture* npc = render_image.createTexture(renderer,"../image.png");
+    SDL_Texture* npc = render_image.createTexture(renderer,"../Trader.png");
     SDL_Texture* player = render_image.createTexture(renderer,"../player_updated.png");
-    SDL_Texture* luckyblock = render_image.createTexture(renderer,"../image.png");
+    SDL_Texture* luckyblock = render_image.createTexture(renderer,"../Lucky_Block.png");
     SDL_Texture* tradetexture = rendertext.CreateText(renderer, font_path,"Press e to trade",SDL_Color{255,255,255,255},500);
     SDL_Texture* menu = render_image.createTexture(renderer,"../gui.png");
     SDL_Texture* luckyblockmsg = rendertext.CreateText(renderer,font_path,"You got: ",SDL_Color{255,255,255,255},500);
     SDL_Texture* luckyblockresult;
     SDL_Texture* menubackground = render_image.createTexture(renderer,"../black.png");
-    SDL_Texture* monster = render_image.createTexture(renderer,"../image.png");
+    SDL_Texture* monster = render_image.createTexture(renderer,"../Monster.png");
     SDL_Texture* health = render_image.createTexture(renderer,"../health.png");
     SDL_Texture* inventorypng = render_image.createTexture(renderer,"../inventory.png");
     SDL_Texture* selected = render_image.createTexture(renderer,"../selected.png");
@@ -361,6 +457,14 @@ int main(int argc, char* argv[])
     SDL_Texture* luckyblockresulttitle = rendertext.CreateText(renderer,"../px.ttf","Lucky Block Result",SDL_Color{77,64,52,255},16);
     SDL_Texture* postdecept;
     SDL_Texture* tradeui = render_image.createTexture(renderer,"../trade.png");
+    SDL_Texture* showitemName;
+    SDL_Texture* tradeno1count;
+    SDL_Texture* tradeno2count;
+    SDL_Texture* scamText1 = rendertext.CreateText(renderer,sans_path,"You got scammed by the trader!",SDL_Color{153,0,0,255},300);
+    SDL_Texture* scamText2 = rendertext.CreateText(renderer,sans_path,"The trader also stole 2 other items from your inventory.",SDL_Color{153,0,0,255},500);
+    SDL_Texture* womp =rendertext.CreateText(renderer,sans_path,"Womp Womp", SDL_Color{255,255,255,255},200);
+    SDL_Texture* traderText = rendertext.CreateText(renderer,"../trade.ttf","TRADER",SDL_Color{77,64,52,255},200);
+    SDL_Texture* luckyblockexit = rendertext.CreateText(renderer,sans_path,"Press ESC to exit",SDL_Color{255,255,255},100);
     SDL_SetTextureAlphaMod(menubackground,175);
     uint32_t frameStart = SDL_GetTicks();
     uint32_t frameCount = 0;
@@ -384,8 +488,24 @@ int main(int argc, char* argv[])
     steady_clock::time_point monsterSpeedGain;
     steady_clock::time_point playerSlow;
     steady_clock::time_point timenow;
+    steady_clock::time_point traderScam;
     int elapsed;
     int elapsed2;
+    itemTextures[2] = render_image.createTexture(renderer,"../Diamond.png");
+    itemTextures[3] = render_image.createTexture(renderer,"../Trash.png");
+    itemTextures[4] = render_image.createTexture(renderer,"../Dirt.png");
+    itemTextures[5] = render_image.createTexture(renderer,"../Ruby.png");
+    itemTextures[6] = render_image.createTexture(renderer,"../Money.png");
+    for (int i =1;i<17;i++)
+    {
+        sprintf(buffer2,"%d",i);
+        numbers[i] = rendertext.CreateText(renderer,sans_path,buffer2,SDL_Color{255,255,255,255},30);
+    }
+    //WARNING: Remove before submission
+    for (int i=0;i<7;i++)
+    {
+        addInventory(i,16);
+    }
     while (mode == "home")
     {
         bool Enterclick = false;
@@ -460,6 +580,7 @@ int main(int argc, char* argv[])
     itemTextures[0] = render_image.createTexture(renderer,"../potion.png");
     Button trade1(renderer,nullptr,162,205,270,64);
     Button trade2(renderer,nullptr,162,276,270,64);
+    Button tradeBut(renderer,"../Trade_Button.png",162,345,270,64);
     //In Game
     while (true)
     {
@@ -469,7 +590,16 @@ int main(int argc, char* argv[])
         {
             auto generatex = npccoordsgen(gen);
             auto generatey = npccoordsgen(gen);
-            npcpos[npccount] = NPC{generatex,generatey,steady_clock::now()};
+            tradeno1 = trades[tradegen(gen)];
+            tradeno2 = trades[tradegen(gen)];
+            bool scamming = scam(gen);
+            if (scamming)
+            {
+                npcpos[npccount] = NPC{generatex,generatey,steady_clock::now(),{scamtrades[scamtradesgen(gen)],scamtrades[scamtradesgen(gen)]},scamming};
+            }else
+            {
+                npcpos[npccount] = NPC{generatex,generatey,steady_clock::now(),{tradeno1,tradeno2},scamming};
+            }
             npccount++;
             cout << "NPC Number " << npccount << " generated at ("
      << npcpos[npccount-1].x << ", "
@@ -509,6 +639,10 @@ int main(int argc, char* argv[])
                     tradeguistatus = 1;
                     tradeselected = true;
                 }
+                if (tradeBut.checkClick(event,mousex,mousey))
+                {
+                    tradebuttonclick = true;
+                }
             }
             //Handle Movement Keys
             if (event.type == SDL_KEYDOWN)
@@ -524,7 +658,7 @@ int main(int argc, char* argv[])
                     if (inventory[selectedSlot].first == 0)
                     {
                         slownessactive = true;
-                        move = discrete_distribution<>{99,1};
+                        monstercyclereq = 15;
                         if (inventory[selectedSlot].second == 1)
                         {
                             inventory[selectedSlot].first = -1;
@@ -567,17 +701,29 @@ int main(int argc, char* argv[])
                 {
                     direction = 0;
                     playery +=playerSpeed;
-                }else if (trade&&checkKey("E", event)&& !luckyblockopened)
+                }else if (checkKey("E", event)&& !luckyblockopened)
                 {
-                    trade = false;
-                    tradeguiopen = true;
-                    cout << "Open" << endl;
+                    for (const auto& npc : npcpos)
+                    {
+                        if (playerNearNpc(playerx, playery, npc.second.x, npc.second.y, 50)) {
+                            currentNpcId = npc.first;
+                            tradeguiopen = true;
+                            trade = false;
+                            break;
+                        }
+                    }
                 }else if (tradeguiopen && checkKey("Escape", event))
                 {
                     tradeguiopen = false;
                     trade=true;
                     tradeselected =false;
                     tradeguistatus = 0;
+                }else if (checkKey("Z",event))
+                {
+                    tradeguiopen = true;
+                }else if (displayObtained && checkKey("Escape",event))
+                {
+                    displayObtained = false;
                 }
                 moving =true;
 
@@ -589,7 +735,20 @@ int main(int argc, char* argv[])
                 return 0;
             }
         }
-        moveMonster(monster1,playerx,playery,gen,move);
+        npcnearfound = false;
+        for (auto i:npcpos)
+        {
+            if (playerNearNpc(playerx,playery,i.second.x, i.second.y, 50))
+            {
+                trade = true;
+                npcnearfound = true;
+            }
+        }
+        if (!npcnearfound)
+        {
+            trade=false;
+        }
+        moveMonster(monster1,playerx,playery,monstermovementcycle,monstermoveflip,monstercyclereq);
         if (slowplayer&&duration_cast<milliseconds>(timenow - playerSlow).count() > 5000 && duration_cast<milliseconds>(timenow - playerSlow).count() < 5200)
         {
             playerSpeed+=3;
@@ -597,10 +756,10 @@ int main(int argc, char* argv[])
         }
         if (fastmonster&&duration_cast<milliseconds>(timenow - monsterSpeedGain).count() > 7000&&duration_cast<milliseconds>(timenow - monsterSpeedGain).count() <7200)
         {
-            move = discrete_distribution<>{98,2};
-            fastmonster = true;
+            monstercyclereq = 11;
+            fastmonster = false;
         }
-        if (playerNearNpc(playerx,playery,monster1.x,monster1.y,30))
+        if (playerNearNpc(playerx,playery,monster1.x,monster1.y,35))
         {
             if (duration_cast<milliseconds>(steady_clock::now() - lastDamage).count() >= damagecooldown)
             {
@@ -624,7 +783,7 @@ int main(int argc, char* argv[])
             if (elapsed2 >=7 && elapsed2 <=8)
             {
                 slownessactive = false;
-                move = discrete_distribution<>{98,2};
+                monstercyclereq = 11;
             }
         }
         //Handle Movement animations
@@ -646,17 +805,6 @@ int main(int argc, char* argv[])
             }
         }
         array<int ,4> shown =spritePos[direction][animationnum];
-        //Check if the player is near the npc
-        for (auto i:npcpos)
-        {
-            if (playerNearNpc(playerx, playery, i.second.x,i.second.y,50) && !tradeguiopen)
-            {
-                trade =true;
-            }else
-            {
-                trade=false;
-            }
-        }
         for (auto i = luckyblockpos.begin();i!=luckyblockpos.end();)
         {
             if (checkCollision(playerx,playery,50,50,i->second.first,i->second.second,20,20)&& !luckyblockopened)
@@ -676,6 +824,7 @@ int main(int argc, char* argv[])
                 {
                     luckydec = true;
                     luckydectp = luckydecconsq[luckydeccongen(gen)];
+                    deceptionTextShow = steady_clock::now();
                     cout << luckydectp << endl;
                     decept = false;
                 }else
@@ -707,6 +856,27 @@ int main(int argc, char* argv[])
         {
             render_image.showImage(renderer,potions,505,32,32,32,potionpos["Speed"][0],potionpos["Speed"][1],potionpos["Speed"][2],potionpos["Speed"][3],SDL_FLIP_NONE);
         }
+        if (luckydec)
+        {
+            auto luckydecdisplay= duration_cast<milliseconds>(timenow-deceptionTextShow).count();
+            if (luckydecdisplay > 1000&&luckydecdisplay < 4000)
+            {
+                if (predecept == nullptr)
+                {
+                    SDL_DestroyTexture(predecept);
+                    predecept = nullptr;
+                }
+                predecept = rendertext.CreateText(renderer,"../dec.ttf","Or did you?", SDL_Color{255,255,255,255},100);
+                if (storyopacity <255)storyopacity++;
+                cout << "rendering or did you" << endl;
+                SDL_SetTextureAlphaMod(predecept,storyopacity);
+                rendertext.DrawText(renderer,predecept,200,100,200,60);
+            }else if (luckydecdisplay > 4000)
+            {
+                applyluckydeceff = true;
+                storyopacity = 0;
+            }
+        }
         //Render the inventory slot
         render_image.showImage(renderer,inventorypng,50,500,500,60,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
         render_image.showImage(renderer,selected,selectedpos[selectedSlot][0],497,500,60,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
@@ -720,152 +890,350 @@ int main(int argc, char* argv[])
                 }else if (i.second.first == 1)
                 {
                     render_image.showImage(renderer,potions,50+(i.first-1)*55,500,55,55,potionpos["Speed"][0],potionpos["Speed"][1],potionpos["Speed"][2],potionpos["Speed"][3],SDL_FLIP_NONE);
+                }else
+                {
+                    render_image.showImage(renderer,itemTextures[i.second.first],50+(i.first-1)*55,500,55,55,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
                 }
             }
         }
-            render_image.showImage(renderer,player,playerx,playery,50,50,shown[0],shown[1],shown[2],shown[3],spriteflip);
-            render_image.showImage(renderer,health,playerx,playery-15,50,13,healthpos[healthstate][0],healthpos[healthstate][1],healthpos[healthstate][2],healthpos[healthstate][3],SDL_FLIP_NONE);
-            for (auto i = npcpos.begin(); i != npcpos.end();)
+        render_image.showImage(renderer,player,playerx,playery,50,50,shown[0],shown[1],shown[2],shown[3],spriteflip);
+        render_image.showImage(renderer,health,playerx,playery-15,50,13,healthpos[healthstate][0],healthpos[healthstate][1],healthpos[healthstate][2],healthpos[healthstate][3],SDL_FLIP_NONE);
+        for (auto i = npcpos.begin(); i != npcpos.end();)
+        {
+            auto lifespanelapsed = duration_cast<seconds>(steady_clock::now() - i->second.spawntime).count();
+            //Despawn npc after 30s
+            if (lifespanelapsed > 10000)
             {
-                auto lifespanelapsed = duration_cast<seconds>(steady_clock::now() - i->second.spawntime).count();
-                //Despawn npc after 30s
-                if (lifespanelapsed > 10000)
-                {
-                    npccount--;
-                    cout << "Despawned" << endl;
-                    i = npcpos.erase(i);
-                }else {
-                    render_image.showImage(renderer,npc,i->second.x,i->second.y,50,50,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
-                    ++i;
-                }
+                npccount--;
+                cout << "Despawned" << endl;
+                i = npcpos.erase(i);
+            }else {
+                render_image.showImage(renderer,npc,i->second.x,i->second.y,50,50,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+                ++i;
             }
-            render_image.showImage(renderer,monster,monster1.x,monster1.y,50,50,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
-            for (auto i :luckyblockpos)render_image.showImage(renderer,luckyblock,i.second.first,i.second.second,20,20,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
-            if (displayObtained && duration_cast<milliseconds>(steady_clock::now()-displaytime).count() <1600)
+        }
+        render_image.showImage(renderer,monster,monster1.x,monster1.y,70,70,NULL,NULL,NULL,NULL,monstermoveflip);
+        for (auto i :luckyblockpos)render_image.showImage(renderer,luckyblock,i.second.first,i.second.second,20,20,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+        if (displayObtained && duration_cast<milliseconds>(steady_clock::now()-displaytime).count() <3000)
+        {
+            SDL_DestroyTexture(luckyblockresult);
+            render_image.showImage(renderer,menubackground,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+            render_image.showImage(renderer,menu,125,200,340,200,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+            rendertext.DrawText(renderer,luckyblockresulttitle,200,220,200,30);
+            rendertext.DrawText(renderer,luckyblockmsg,240,250,130,40);
+            rendertext.DrawText(renderer,luckyblockexit,200,320,200,40);
+            obtained = luckyblockitemgen(gen);
+            if (obtained == 0)
             {
-                SDL_DestroyTexture(luckyblockresult);
-                rendertext.DrawText(renderer,luckyblockmsg,150,20,200,50);
-                luckyblockresult = rendertext.CreateText(renderer,font_path,items[obtained],SDL_Color{255,255,255,255},500);
-                rendertext.DrawText(renderer,luckyblockresult,350,20,50,50);
-                decept = luckyblockdecept(gen);
-                if (decept)deceptionTextShow = steady_clock::now();
-            }else if (duration_cast<milliseconds>(steady_clock::now()-displaytime).count() >1600 && displayObtained)
+                render_image.showImage(renderer,potions,280,285,39,40,potionpos["Slow"][0],potionpos["Slow"][1],potionpos["Slow"][2],potionpos["Slow"][3],SDL_FLIP_NONE);
+            }else if (obtained == 1)
             {
-                displayObtained = false;
-                SDL_DestroyTexture(luckyblockresult);
+                render_image.showImage(renderer,potions,280,285,39,40,potionpos["Speed"][0],potionpos["Speed"][1],potionpos["Speed"][2],potionpos["Speed"][3],SDL_FLIP_NONE);
+            }else
+            {
+                rendertext.DrawText(renderer,itemTextures[obtained],280,285,39,40);
             }
-            if (luckyblockopened)
+        }else if (duration_cast<milliseconds>(steady_clock::now()-displaytime).count() ==1600 && displayObtained)
+        {
+            displayObtained = false;
+            SDL_DestroyTexture(luckyblockresult);
+        }
+        if (luckyblockopened)
+        {
+            obtainedgenerated = false;
+            auto elapsed = duration_cast<milliseconds>(steady_clock::now() - luckyblockpickup).count();
+            if (!deceptiontimerset&&luckydectp)
             {
-                auto elapsed = duration_cast<milliseconds>(steady_clock::now() - luckyblockpickup).count();
-                if (luckyblockcycle <  50 )
-                {
-                    render_image.showImage(renderer,menubackground,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
-                    render_image.showImage(renderer,menu,125,200,340,200,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
-                    rendertext.DrawText(renderer,luckyblockresulttitle,200,220,200,30);
-                    rendertext.DrawText(renderer,luckyblockmsg,240,250,130,40);
-                    if (elapsed > 50)
-                    {
-                        SDL_DestroyTexture(luckyblockresult);
-                        luckyblockresult = nullptr;
-                        obtained = number(gen);
-                        luckyblockresult = rendertext.CreateText(renderer,font_path,items[obtained],SDL_Color{255,255,255,255},500);
-                        luckyblockpickup = steady_clock::now();
-                        luckyblockcycle++;
-                    }
-                    rendertext.DrawText(renderer,luckyblockresult,280,285,39,40);
-
-                }else if (!luckydectp)
+                deceptiontimerset = true;
+                deceptionTextShow = timenow;
+            }
+            if (luckyblockcycle <  50 )
+            {
+                render_image.showImage(renderer,menubackground,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+                render_image.showImage(renderer,menu,125,200,340,200,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+                rendertext.DrawText(renderer,luckyblockresulttitle,200,220,200,30);
+                rendertext.DrawText(renderer,luckyblockmsg,240,250,130,40);
+                if (elapsed > 50)
                 {
                     SDL_DestroyTexture(luckyblockresult);
                     luckyblockresult = nullptr;
-                    addInventory(obtained,1);
-                    luckyblockcycle =1;
-                    luckyblockopened = false;
-                    displayObtained = true;
-                    displaytime = steady_clock::now();
+                    obtained = luckyblockpre(gen);
+                    luckyblockpickup = steady_clock::now();
+                    luckyblockcycle++;
+                }
+                if (obtained == 0)
+                {
+                    render_image.showImage(renderer,potions,280,285,39,40,potionpos["Slow"][0],potionpos["Slow"][1],potionpos["Slow"][2],potionpos["Slow"][3],SDL_FLIP_NONE);
+                }else if (obtained == 1)
+                {
+                    render_image.showImage(renderer,potions,280,285,39,40,potionpos["Speed"][0],potionpos["Speed"][1],potionpos["Speed"][2],potionpos["Speed"][3],SDL_FLIP_NONE);
                 }else
                 {
-                    luckyblockopened = false;
+                    rendertext.DrawText(renderer,itemTextures[obtained],280,285,39,40);
+                }
+            }else if (!luckydectp)
+            {
+                SDL_DestroyTexture(luckyblockresult);
+                luckyblockresult = nullptr;
+                addInventory(obtained,1);
+                luckyblockcycle =1;
+                luckyblockopened = false;
+                displayObtained = true;
+                displaytime = steady_clock::now();
+            }else
+            {
+                displaytime = steady_clock::now();
+                SDL_DestroyTexture(luckyblockresult);
+                luckyblockresult = nullptr;
+                displayObtained = true;
+                if (!obtainedgenerated)
+                {
+                    obtained = luckyblockitemgen(gen);
+                    obtainedgenerated = true;
+                }
+                obtained = luckyblockitemgen(gen);
+                luckyblockopened = false;
+                luckyblockcycle =1;
+            }
+        }
+
+        for (auto i:inventory)
+        {
+            if (i.second.first !=-1)
+            {
+                rendertext.DrawText(renderer,numbers[i.second.second],77+(i.first-1)*55,528,20,25);
+            }
+            if (inventory[selectedSlot].first !=-1)
+            {
+                showitemName = rendertext.CreateText(renderer,sans_path,itemidNames[inventory[selectedSlot].first],SDL_Color{255,255,255,255},200);
+                rendertext.DrawText(renderer,showitemName,200,450,(strlen(itemidNames[inventory[selectedSlot].first])*14),45);
+            }
+            SDL_DestroyTexture(showitemName);
+            showitemName = nullptr;
+        }
+
+        if (applyluckydeceff&&luckydec && duration_cast<milliseconds>(steady_clock::now()-deceptionTextShow).count() >=3000)
+        {
+            if (luckydectp == "Tp")
+            {
+                playerx = monster1.x;
+                playery = monster1.y;
+                cout << "Player tp to monster" <<endl;
+            }else if (luckydectp == "Speed")
+            {
+                monstercyclereq = 9;
+                monsterSpeedGain = steady_clock::now();
+                fastmonster = true;
+                cout << "Monster Speed increase" << endl;
+            }else if (luckydectp == "Slow")
+            {
+                playerSpeed -=3;
+                playerSlow = steady_clock::now();
+                slowplayer = true;
+                cout << "Player Speed decrease" << endl;
+            }else if (luckydectp == "Clear")
+            {
+                luckyblockcount = 0;
+                npccount = 0;
+                luckyblockpos.clear();
+                npcpos.clear();
+                cout << "All Npc and Luckyblocks cleared" << endl;
+            }
+            luckydectp = nullptr;
+            luckydec,deceptiontimerset = false;
+        }
+        //WARNING:The texture below should be the last thing that is rendered
+        if (tradeguiopen)
+        {
+            if (currentNpcId != -1) {
+                auto tradesForNpc = npcpos[currentNpcId].trades; // This is a vector of vectors
+
+                // Check if there are at least two trades available
+                if (tradesForNpc.size() >= 2) {
+                    // Load first trade
+                    vector<int> firstTrade = tradesForNpc[0]; // Get the first trade vector
+                    tradeno1 = firstTrade; // Assign the first trade to tradeno1
+
+                    // Load second trade
+                    vector<int> secondTrade = tradesForNpc[1]; // Get the second trade vector
+                    tradeno2 = secondTrade; // Assign the second trade to tradeno2
                 }
             }
-            if (duration_cast<milliseconds>(steady_clock::now()-deceptionTextShow).count() <=3000 && duration_cast<milliseconds>(steady_clock::now()-displaytime).count() >=500)
+            render_image.showImage(renderer,menubackground,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+            render_image.showImage(renderer,menu,135,110,325,325,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+            render_image.showImage(renderer,tradeui,135,110,325,325,tradeguipos[tradeguistatus][0],tradeguipos[tradeguistatus][1],96,96,SDL_FLIP_NONE);
+            rendertext.DrawText(renderer,traderText,200,150,200,50);
+            //render first trade
+            if (tradeno1[0] == 0)
             {
-                SDL_DestroyTexture(predecept);
-                predecept = nullptr;
-                if (storyopacity <255)storyopacity+=2;
-                SDL_Texture* predecept = rendertext.CreateText(renderer,"../dec.ttf","Or did you?", SDL_Color{200,20,0,255},100);
-                SDL_SetTextureAlphaMod(predecept,storyopacity);
-                rendertext.DrawText(renderer,predecept,165,50,275,95);
-            }else if (duration_cast<milliseconds>(steady_clock::now()-deceptionTextShow).count() >=3000 && duration_cast<milliseconds>(steady_clock::now()-deceptionTextShow).count()<=3200)
+                render_image.showImage(renderer, potions, 190, 210, 50, 50, potionpos["Slow"][0], potionpos["Slow"][1], potionpos["Slow"][2], potionpos["Slow"][3], SDL_FLIP_NONE);
+            }else if (tradeno1[0] == 1)
             {
-                storyopacity = 0;
-                SDL_DestroyTexture(predecept);
-
-            }else if (duration_cast<milliseconds>(timenow-deceptionTextShow).count() >=3000 && duration_cast<milliseconds>(timenow-deceptionTextShow).count() <3200)
+                render_image.showImage(renderer, potions, 190, 210, 50, 50, potionpos["Speed"][0], potionpos["Speed"][1], potionpos["Speed"][2], potionpos["Speed"][3], SDL_FLIP_NONE);
+            }else
             {
-                applyluckydeceff = true;
+                render_image.showImage(renderer, itemTextures[tradeno1[0]], 190, 210, 50, 50, NULL, NULL, NULL, NULL, SDL_FLIP_NONE);
             }
-            for (auto i:inventory)
+            sprintf(buffer2, "%d", tradeno1[1]); // Count of the first item
+            tradeno1count = rendertext.CreateText(renderer, sans_path, buffer2, SDL_Color{255, 255, 255, 255}, 30);
+            rendertext.DrawText(renderer, tradeno1count, 215, 230, 20, 20);
+            if (tradeno1[2] == 0)
             {
-                if (i.second.first !=-1)
-                {
-                    if (invcount)
-                    {
-                        SDL_DestroyTexture(invcount);
+                render_image.showImage(renderer, potions, 355, 210, 50, 50, potionpos["Slow"][0], potionpos["Slow"][1], potionpos["Slow"][2], potionpos["Slow"][3], SDL_FLIP_NONE);
+            }else if (tradeno1[2] == 1)
+            {
+                render_image.showImage(renderer, itemTextures[tradeno1[2]], 355, 210, 50, 50, potionpos["Speed"][0], potionpos["Speed"][1], potionpos["Speed"][2], potionpos["Speed"][3], SDL_FLIP_NONE);
+            }else
+            {
+                render_image.showImage(renderer, itemTextures[tradeno1[2]], 355, 210, 50, 50, NULL, NULL, NULL, NULL, SDL_FLIP_NONE);
+            }
+            SDL_DestroyTexture(tradeno1count);
+            sprintf(buffer2, "%d", tradeno1[3]); // Count of the second item
+            tradeno2count = rendertext.CreateText(renderer, sans_path, buffer2, SDL_Color{255, 255, 255, 255}, 30);
+            rendertext.DrawText(renderer, tradeno2count, 380, 230, 20, 20);
+            // Render second trade
+            if (tradeno2[0] == 0)
+            {
+                render_image.showImage(renderer,potions,190,280,50,50,potionpos["Slow"][0], potionpos["Slow"][1], potionpos["Slow"][2], potionpos["Slow"][3],SDL_FLIP_NONE);
+            }else if(tradeno2[0] == 1)
+            {
+                render_image.showImage(renderer,potions,190,280,50,50,potionpos["Speed"][0], potionpos["Speed"][1], potionpos["Speed"][2], potionpos["Speed"][3],SDL_FLIP_NONE);
+            }else
+            {
+                render_image.showImage(renderer, itemTextures[tradeno2[0]], 190, 280, 50, 50, NULL, NULL, NULL, NULL, SDL_FLIP_NONE);
+            }
+            sprintf(buffer2, "%d", tradeno2[1]); // Count of the first item in the second trade
+            tradeno2count = rendertext.CreateText(renderer, sans_path, buffer2, SDL_Color{255, 255, 255, 255}, 30);
+            rendertext.DrawText(renderer, tradeno2count, 215, 300, 20, 20);
+            if (tradeno2[2] == 0)
+            {
+                render_image.showImage(renderer,potions,355, 280, 50, 50,potionpos["Slow"][0], potionpos["Slow"][1], potionpos["Slow"][2], potionpos["Slow"][3],SDL_FLIP_NONE);
+            }else if(tradeno2[2] ==1)
+            {
+                render_image.showImage(renderer,potions,355, 280, 50, 50,potionpos["Speed"][0], potionpos["Speed"][1], potionpos["Speed"][2], potionpos["Speed"][3], SDL_FLIP_NONE);
+            }else
+            {
+                render_image.showImage(renderer, itemTextures[tradeno2[2]], 355, 280, 50, 50, NULL, NULL, NULL, NULL, SDL_FLIP_NONE);
+            }
+            sprintf(buffer2, "%d", tradeno2[3]); // Count of the second item in the second trade
+            tradeno2count = rendertext.CreateText(renderer, sans_path, buffer2, SDL_Color{255, 255, 255, 255}, 30);
+            rendertext.DrawText(renderer, tradeno2count, 380, 300, 20, 20);
+            SDL_DestroyTexture(tradeno1count);
+            SDL_DestroyTexture(tradeno2count);
+            //render trade button
+            if (tradebuttonclick)
+            {
+                tradeBut.RenderButton(renderer,tradebutpos[2][0],tradebutpos[2][1],tradebutpos[2][2],tradebutpos[2][3]);
+            }
+            else if (tradeBut.checkHover(mousex,mousey))
+            {
+                tradeBut.RenderButton(renderer,tradebutpos[1][0],tradebutpos[1][1],tradebutpos[1][2],tradebutpos[1][3]);
+            }else
+            {
+                tradeBut.RenderButton(renderer,tradebutpos[0][0],tradebutpos[0][1],tradebutpos[0][2],tradebutpos[0][3]);
+            }
+        }
+        if (tradebuttonclick) {
+            bool tradeSuccessful = false;
+
+            if (tradeguistatus == 1) {
+                int itemToGive = tradeno2[0];
+                int countToGive = tradeno2[1];
+                int itemToReceive = tradeno2[2];
+                int countToReceive = tradeno2[3];
+
+                if (hasRequiredItems(inventory, itemToGive, countToGive)) {
+                    for (auto& slot : inventory) {
+                        if (slot.second.first == itemToGive) {
+                            slot.second.second -= countToGive;
+                            if (slot.second.second <= 0) {
+                                slot.second.first = -1;
+                            }
+                            break;
+                        }
                     }
-                    sprintf(buffer2,"%d",i.second.second);
-                    invcount = rendertext.CreateText(renderer,sans_path,buffer2,SDL_Color{255,255,255,255},50);
-                    rendertext.DrawText(renderer,invcount,77+(i.first-1)*55,528,20,25);
-                }
-            }
-            if (applyluckydeceff&&luckydec && duration_cast<milliseconds>(steady_clock::now()-deceptionTextShow).count() >=3000)
-            {
-                if (luckydectp == "Tp")
-                {
-                    playerx = monster1.x;
-                    playery = monster1.y;
-                    cout << "Player tp to monster" <<endl;
-                }else if (luckydectp == "Speed")
-                {
-                    move = discrete_distribution<>{97,3};
-                    monsterSpeedGain = steady_clock::now();
-                    fastmonster = true;
-                    cout << "Monster Speed increase" << endl;
-                }else if (luckydectp == "Slow")
-                {
-                    playerSpeed -=3;
-                    playerSlow = steady_clock::now();
-                    slowplayer = true;
-                    cout << "Player Speed decrease" << endl;
-                }else if (luckydectp == "Clear")
-                {
+                    if (npcpos[currentNpcId].scammer)
+                    {
+                        traderScam = steady_clock::now();
+                        showTraderScamMsg = true;
+                        stealTwoOfFirstItem(inventory);
+                        cout << "Trade failed! This NPC is a scammer." << endl;
+                        tradebuttonclick = false; // Reset the button click flag
+                        tradeguiopen = false;
+                        trade = true;
+                        continue; // Skip the trade logic
+                    }
+                    tradeSuccessful = true;
+                    addInventory(itemToReceive, countToReceive); // Add the new item
 
-                    luckyblockpos.clear();
-                    npcpos.clear();
-                    cout << "All Npc and Luckyblocks cleared" << endl;
                 }
-                luckydectp = nullptr;
-                luckydec = false;
+            } else if (tradeguistatus == 2) { // If trade 2 is selected
+                int itemToGive = tradeno1[0]; // Item ID to give
+                int countToGive = tradeno1[1]; // Count to give
+                int itemToReceive = tradeno1[2]; // Item ID to receive
+                int countToReceive = tradeno1[3]; // Count to receive
+
+                // Check if the player has the required item to give
+                if (hasRequiredItems(inventory, itemToGive, countToGive)) {
+                    // Update inventory: remove the traded item and add the new item
+                    for (auto& slot : inventory) {
+                        if (slot.second.first == itemToGive) {
+                            slot.second.second -= countToGive; // Remove the required item
+                            if (slot.second.second <= 0) {
+                                slot.second.first = -1; // Mark slot as empty if count is zero
+                            }
+                            break; // Exit loop after finding the item
+                        }
+                    }
+                    tradeSuccessful = true;
+                    if (npcpos[currentNpcId].scammer)
+                        {
+                        traderScam = steady_clock::now();
+                        showTraderScamMsg = true;
+                        stealTwoOfFirstItem(inventory);
+                        cout << "Trade failed! This NPC is a scammer." << endl;
+                        tradebuttonclick = false; // Reset the button click flag
+                        tradeguiopen = false;
+                        trade = true;
+                        continue; // Skip the trade logic
+                    }
+                    addInventory(itemToReceive, countToReceive); // Add the new item
+                }
             }
-            //WARNING:The texture below should be the last thing that is rendered
-            if (tradeguiopen)
+
+            // Provide feedback to the player
+            if (tradeSuccessful) {
+                cout << "Trade successful!" << endl;
+            } else {
+                cout << "Trade failed! You do not have the required items." << endl;
+            }
+
+            tradebuttonclick = false; // Reset the button click flag
+        }
+        if (showTraderScamMsg)
+        {
+            if (duration_cast<milliseconds>(timenow-traderScam).count()< 2000)
             {
-                render_image.showImage(renderer,menubackground,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
-                render_image.showImage(renderer,menu,135,110,325,325,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
-                render_image.showImage(renderer,tradeui,135,110,325,325,tradeguipos[tradeguistatus][0],tradeguipos[tradeguistatus][1],96,96,SDL_FLIP_NONE);
-                //TODO: Render the internal parts of the menu(trade spaces, trade button, add. info)
-            }
-            SDL_RenderPresent(renderer);
-            //Limit Fps
-            uint32_t frameTimeEnd = SDL_GetTicks();
-            uint32_t frameDuration = frameTimeEnd - frameStart;
-            if (frameDuration < (1000/fpscap))
+                cout << "showing" << endl;
+                rendertext.DrawText(renderer,scamText1,130,35,350,30);
+            }else if (duration_cast<milliseconds>(timenow-traderScam).count()< 4000)
             {
-                SDL_Delay((1000/fpscap) - frameDuration);
+                rendertext.DrawText(renderer,scamText2,90,35,400,30);
+            }else if (duration_cast<milliseconds>(timenow-traderScam).count()< 5000)
+            {
+                rendertext.DrawText(renderer,womp,330,35,100,30);
+            }else
+            {
+                showTraderScamMsg = false;
             }
-            //Increment per frame
-            frameCount++;
-            movementcycles++;
 
         }
+        SDL_RenderPresent(renderer);
+        //Limit Fps
+        uint32_t frameTimeEnd = SDL_GetTicks();
+        uint32_t frameDuration = frameTimeEnd - frameStart;
+        //Increment per frame
+        frameCount++;
+        movementcycles++;
     }
+}
