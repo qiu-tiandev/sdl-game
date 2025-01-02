@@ -4,9 +4,9 @@
 //Include Libraries
 #include <iostream>
 #include <SDL.h>
-#include <RenderImage.h>
-#include <RenderText.h>
-#include <Button.h>
+#include "RenderImage.h"
+#include "RenderText.h"
+#include "Button.h"
 #include <unordered_map>
 #include <array>
 #include <random>
@@ -128,7 +128,7 @@ bool hasRequiredItems(const map<int, pair<int, int>>& inventory, int itemID, int
     }
     return false; // Required item not found
 }
-void showLoading(SDL_Renderer* renderer,SDL_Event event, char* loadtext,char* fontpath, auto textrenderer,int duration,auto textures)
+void showLoading(SDL_Renderer* renderer,SDL_Event event, char* loadtext,char* fontpath, RenderText textrenderer,int duration)
 {
     auto begin = high_resolution_clock::now();
     SDL_Texture* done = textrenderer.CreateText(renderer,fontpath,"Done!",SDL_Color{255,255,255,255},1000);
@@ -239,6 +239,39 @@ bool playerNearNpc(int playerx, int playery, int npcx, int npcy, int dist)
     auto xdist = (playerx - npcx) * (playerx - npcx);
     return xdist + ydist < dist*dist;
 }
+vector<int> generateLevel()
+{
+    random_device rd;
+    mt19937 gen(rd());
+    discrete_distribution<>leveltypegen{30,70};
+    uniform_int_distribution<>survivaltime{50,70};
+    uniform_int_distribution<>getitem{0,2};
+    vector<int> ids = {2,5,6};
+    discrete_distribution<>count{0,0,0,0,50,30,20};
+    int leveltype = leveltypegen(gen);
+    return {1,ids[getitem(gen)],count(gen)};
+}
+int checkLevelRequirements(const map<int, pair<int, int>>& inventory, const vector<int>& levelreq)
+{
+    int count = 0; // Counter for satisfied requirements
+
+    // Check if the level requirement is valid
+    if (levelreq.size() < 3) {
+        cout << "Invalid level requirements!" << endl;
+        return count;
+    }
+
+    int requiredItemID = levelreq[1]; // The item ID required
+    int requiredCount = levelreq[2];   // The required count of that item
+
+    // Iterate through the inventory to count the items
+    for (const auto& slot : inventory) {
+        if (slot.second.first == requiredItemID) {
+            count += slot.second.second; // Add the count of this item to the total
+        }
+    }
+    return count >= requiredCount;
+}
 /*
 //Check If Player is close to a npc, this is kind of hard to understand so step by step comments will be provided
 bool playerNearNpc(int playerx, int playery, int npcx, int npcy)
@@ -289,6 +322,7 @@ int main(int argc, char* argv[])
     unordered_map<char*,char*>decmsgs;
     unordered_map<int,char*>itemidNames;
     map<int,SDL_Texture*>numbers;
+    unordered_map<int,SDL_Texture*>levelnums;
     itemidNames[0] = "Slowness Potion";
     itemidNames[1] = "Speed Potion";
     itemidNames[2] = "Diamond";
@@ -353,7 +387,6 @@ int main(int argc, char* argv[])
     int damagecooldown = 400;
     int selectedSlot = 1;
     int playerSpeed = 7;
-    char buffer[2];
     bool slownessactive = false;
     bool speedactive = false;
     char buffer2[3];
@@ -374,9 +407,10 @@ int main(int argc, char* argv[])
     bool showTraderScamMsg = false;
     int scamdisopacity = 0;
     int monstermovementcycle = 0;
-    int monstercyclereq = 11;
+    int monstercyclereq = 30;
     int level = 1;
     bool obtainedgenerated = true;
+    bool updateLevel = false;
     vector<int> tradeno1;
     vector<int> tradeno2;
     random_device rd;
@@ -465,6 +499,10 @@ int main(int argc, char* argv[])
     SDL_Texture* womp =rendertext.CreateText(renderer,sans_path,"Womp Womp", SDL_Color{255,255,255,255},200);
     SDL_Texture* traderText = rendertext.CreateText(renderer,"../trade.ttf","TRADER",SDL_Color{77,64,52,255},200);
     SDL_Texture* luckyblockexit = rendertext.CreateText(renderer,sans_path,"Press ESC to exit",SDL_Color{255,255,255},100);
+    SDL_Texture* lvlcompletedmsg = rendertext.CreateText(renderer,"../Roboto.ttf","Congrats! You have completed this level.",SDL_Color{255,255,255},100);
+    SDL_Texture* objectivetext = rendertext.CreateText(renderer,"../Roboto.ttf","Objective: Collect ",SDL_Color{255,255,255,255},100);
+    SDL_Texture* slash = rendertext.CreateText(renderer,"../Roboto.ttf","/",SDL_Color{255,255,255,255},30);
+    SDL_Texture* leveltext = rendertext.CreateText(renderer,"../Roboto.ttf","Level ",SDL_Color{255,255,255,255},100);
     SDL_SetTextureAlphaMod(menubackground,175);
     uint32_t frameStart = SDL_GetTicks();
     uint32_t frameCount = 0;
@@ -489,6 +527,8 @@ int main(int argc, char* argv[])
     steady_clock::time_point playerSlow;
     steady_clock::time_point timenow;
     steady_clock::time_point traderScam;
+    steady_clock::time_point givetime;
+    steady_clock::time_point showCompleted;
     int elapsed;
     int elapsed2;
     itemTextures[2] = render_image.createTexture(renderer,"../Diamond.png");
@@ -496,15 +536,17 @@ int main(int argc, char* argv[])
     itemTextures[4] = render_image.createTexture(renderer,"../Dirt.png");
     itemTextures[5] = render_image.createTexture(renderer,"../Ruby.png");
     itemTextures[6] = render_image.createTexture(renderer,"../Money.png");
+    vector<SDL_Texture*>numbersroboto;
+    levelnums[1] = rendertext.CreateText(renderer,"../Roboto.ttf","1",SDL_Color{255,255,255,255},50);
+    for (int i=0;i<10;i++)
+    {
+        sprintf(buffer2,"%d",i);
+        numbersroboto.push_back(rendertext.CreateText(renderer,"../Roboto.ttf",buffer2,SDL_Color{255,255,255,255},50));
+    }
     for (int i =1;i<17;i++)
     {
         sprintf(buffer2,"%d",i);
         numbers[i] = rendertext.CreateText(renderer,sans_path,buffer2,SDL_Color{255,255,255,255},30);
-    }
-    //WARNING: Remove before submission
-    for (int i=0;i<7;i++)
-    {
-        addInventory(i,16);
     }
     while (mode == "home")
     {
@@ -537,7 +579,7 @@ int main(int argc, char* argv[])
         auto EntertimeElapsed = duration_cast<milliseconds>(steady_clock::now() - EnterclickTime).count();
         if (EntertimeElapsed >400 && EntertimeElapsed < 450)
         {
-            showLoading(renderer,event,"Loading...",font_path,rendertext,500,nullptr);
+            showLoading(renderer,event,"Loading...",font_path,rendertext,500);
             mode = "game";
         }
         if (Enterclick || EntertimeElapsed < 400)
@@ -582,6 +624,8 @@ int main(int argc, char* argv[])
     Button trade2(renderer,nullptr,162,276,270,64);
     Button tradeBut(renderer,"../Trade_Button.png",162,345,270,64);
     //In Game
+    vector<int>levelreq = generateLevel();//set level requirement
+    givetime = steady_clock::now();
     while (true)
     {
         timenow = steady_clock::now();
@@ -658,7 +702,7 @@ int main(int argc, char* argv[])
                     if (inventory[selectedSlot].first == 0)
                     {
                         slownessactive = true;
-                        monstercyclereq = 15;
+                        monstercyclereq = 32;
                         if (inventory[selectedSlot].second == 1)
                         {
                             inventory[selectedSlot].first = -1;
@@ -735,6 +779,19 @@ int main(int argc, char* argv[])
                 return 0;
             }
         }
+        int reqitemsobtained = 0;
+        for (auto i:inventory)
+        {
+            if (i.second.first == levelreq[1])
+            {
+                reqitemsobtained+=i.second.second;
+            }
+        }
+        //WARNING
+        if (duration_cast<milliseconds>(timenow-givetime).count() == 4000)
+        {
+            addInventory(levelreq[1],levelreq[2]);
+        }
         npcnearfound = false;
         for (auto i:npcpos)
         {
@@ -756,7 +813,7 @@ int main(int argc, char* argv[])
         }
         if (fastmonster&&duration_cast<milliseconds>(timenow - monsterSpeedGain).count() > 7000&&duration_cast<milliseconds>(timenow - monsterSpeedGain).count() <7200)
         {
-            monstercyclereq = 11;
+            monstercyclereq = 28;
             fastmonster = false;
         }
         if (playerNearNpc(playerx,playery,monster1.x,monster1.y,35))
@@ -783,7 +840,7 @@ int main(int argc, char* argv[])
             if (elapsed2 >=7 && elapsed2 <=8)
             {
                 slownessactive = false;
-                monstercyclereq = 11;
+                monstercyclereq = 30;
             }
         }
         //Handle Movement animations
@@ -814,6 +871,7 @@ int main(int argc, char* argv[])
                     SDL_DestroyTexture(luckyblockresult);
                     luckyblockresult = nullptr;
                 }
+                obtainedgenerated = false;
                 luckyblockresult = rendertext.CreateText(renderer,font_path,items[number(gen)],SDL_Color{255,255,255,255},500);
                 luckyblockcount--;
                 decept = luckyblockdecept(gen);
@@ -922,7 +980,6 @@ int main(int argc, char* argv[])
             rendertext.DrawText(renderer,luckyblockresulttitle,200,220,200,30);
             rendertext.DrawText(renderer,luckyblockmsg,240,250,130,40);
             rendertext.DrawText(renderer,luckyblockexit,200,320,200,40);
-            obtained = luckyblockitemgen(gen);
             if (obtained == 0)
             {
                 render_image.showImage(renderer,potions,280,285,39,40,potionpos["Slow"][0],potionpos["Slow"][1],potionpos["Slow"][2],potionpos["Slow"][3],SDL_FLIP_NONE);
@@ -940,7 +997,6 @@ int main(int argc, char* argv[])
         }
         if (luckyblockopened)
         {
-            obtainedgenerated = false;
             auto elapsed = duration_cast<milliseconds>(steady_clock::now() - luckyblockpickup).count();
             if (!deceptiontimerset&&luckydectp)
             {
@@ -980,6 +1036,11 @@ int main(int argc, char* argv[])
                 luckyblockopened = false;
                 displayObtained = true;
                 displaytime = steady_clock::now();
+                if (!obtainedgenerated)
+                {
+                    obtained = luckyblockitemgen(gen);
+                    obtainedgenerated = true;
+                }
             }else
             {
                 displaytime = steady_clock::now();
@@ -991,7 +1052,6 @@ int main(int argc, char* argv[])
                     obtained = luckyblockitemgen(gen);
                     obtainedgenerated = true;
                 }
-                obtained = luckyblockitemgen(gen);
                 luckyblockopened = false;
                 luckyblockcycle =1;
             }
@@ -1003,7 +1063,7 @@ int main(int argc, char* argv[])
             {
                 rendertext.DrawText(renderer,numbers[i.second.second],77+(i.first-1)*55,528,20,25);
             }
-            if (inventory[selectedSlot].first !=-1)
+            if (inventory[selectedSlot].first !=-1)//ERROR
             {
                 showitemName = rendertext.CreateText(renderer,sans_path,itemidNames[inventory[selectedSlot].first],SDL_Color{255,255,255,255},200);
                 rendertext.DrawText(renderer,showitemName,200,450,(strlen(itemidNames[inventory[selectedSlot].first])*14),45);
@@ -1011,7 +1071,46 @@ int main(int argc, char* argv[])
             SDL_DestroyTexture(showitemName);
             showitemName = nullptr;
         }
-
+        if (checkLevelRequirements(inventory,levelreq))
+        {
+            for (auto i:levelnums)
+            {
+                SDL_DestroyTexture(i.second);
+            }
+            showCompleted = steady_clock::now();
+            levelreq = generateLevel();
+            cout << "cleared" << endl;
+        }
+        if (duration_cast<milliseconds>(timenow-showCompleted).count()<1500)
+        {
+            rendertext.DrawText(renderer,lvlcompletedmsg,160,25,260,30);
+            updateLevel = true;
+        }else if (duration_cast<milliseconds>(timenow-showCompleted).count()<1600)
+        {
+            npcpos.clear();
+            luckyblockpos.clear();
+            inventory.clear();
+            npccount =0;
+            luckyblockcount =0;
+            monster1.x = 300;
+            monster1.y = 300;
+            showLoading(renderer,event,"Loading lvl", sans_path, rendertext,1000);
+        }
+        if (updateLevel)
+        {
+            levelnums.clear();
+            level++;
+            sprintf(buffer2,"%d",level);
+            levelnums[level] = rendertext.CreateText(renderer,"../Roboto.ttf",buffer2,SDL_Color{255,255,255,255},100);
+            updateLevel=false;
+        }
+        rendertext.DrawText(renderer,objectivetext,200,50,100,15);
+        rendertext.DrawText(renderer,numbersroboto[reqitemsobtained],300,50,10,15);
+        rendertext.DrawText(renderer,slash,310,50,8,15);
+        rendertext.DrawText(renderer,numbersroboto[levelreq[2]],318,50,10,15);
+        rendertext.DrawText(renderer,itemTextures[levelreq[1]],328,50,15,15);
+        rendertext.DrawText(renderer,leveltext,350,50,35,15);
+        rendertext.DrawText(renderer,levelnums[level],385,50,8,15);
         if (applyluckydeceff&&luckydec && duration_cast<milliseconds>(steady_clock::now()-deceptionTextShow).count() >=3000)
         {
             if (luckydectp == "Tp")
@@ -1021,7 +1120,7 @@ int main(int argc, char* argv[])
                 cout << "Player tp to monster" <<endl;
             }else if (luckydectp == "Speed")
             {
-                monstercyclereq = 9;
+                monstercyclereq = 28;
                 monsterSpeedGain = steady_clock::now();
                 fastmonster = true;
                 cout << "Monster Speed increase" << endl;
