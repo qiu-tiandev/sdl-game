@@ -52,28 +52,28 @@ build cmake_object_order_depends_target_SDL2TEST: phony || .
 build CMakeFiles/SDL2TEST.dir/main.cpp.obj: CXX_COMPILER__SDL2TEST_unscanned_Debug C$:/Users/studentadmin/CLionProjects/SDL2TEST/main.cpp || cmake_object_order_depends_target_SDL2TEST
   DEP_FILE = CMakeFiles\SDL2TEST.dir\main.cpp.obj.d
   FLAGS = -g -std=gnu++20 -fdiagnostics-color=always
-  INCLUDES = -IC:/Users/studentadmin/SDL2/include -IC:/Users/studentadmin/CLionProjects/SDL2TEST -IC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/include -IC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/include
+  INCLUDES = -IC:/Users/studentadmin/SDL2/include -IC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/include -IC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/include -IC:/Users/studentadmin/Downloads/SDL2_mixer-devel-2.8.0-VC/SDL2_mixer-2.8.0/include
   OBJECT_DIR = CMakeFiles\SDL2TEST.dir
   OBJECT_FILE_DIR = CMakeFiles\SDL2TEST.dir
 
 build CMakeFiles/SDL2TEST.dir/RenderText.cpp.obj: CXX_COMPILER__SDL2TEST_unscanned_Debug C$:/Users/studentadmin/CLionProjects/SDL2TEST/RenderText.cpp || cmake_object_order_depends_target_SDL2TEST
   DEP_FILE = CMakeFiles\SDL2TEST.dir\RenderText.cpp.obj.d
   FLAGS = -g -std=gnu++20 -fdiagnostics-color=always
-  INCLUDES = -IC:/Users/studentadmin/SDL2/include -IC:/Users/studentadmin/CLionProjects/SDL2TEST -IC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/include -IC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/include
+  INCLUDES = -IC:/Users/studentadmin/SDL2/include -IC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/include -IC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/include -IC:/Users/studentadmin/Downloads/SDL2_mixer-devel-2.8.0-VC/SDL2_mixer-2.8.0/include
   OBJECT_DIR = CMakeFiles\SDL2TEST.dir
   OBJECT_FILE_DIR = CMakeFiles\SDL2TEST.dir
 
 build CMakeFiles/SDL2TEST.dir/RenderImage.cpp.obj: CXX_COMPILER__SDL2TEST_unscanned_Debug C$:/Users/studentadmin/CLionProjects/SDL2TEST/RenderImage.cpp || cmake_object_order_depends_target_SDL2TEST
   DEP_FILE = CMakeFiles\SDL2TEST.dir\RenderImage.cpp.obj.d
   FLAGS = -g -std=gnu++20 -fdiagnostics-color=always
-  INCLUDES = -IC:/Users/studentadmin/SDL2/include -IC:/Users/studentadmin/CLionProjects/SDL2TEST -IC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/include -IC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/include
+  INCLUDES = -IC:/Users/studentadmin/SDL2/include -IC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/include -IC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/include -IC:/Users/studentadmin/Downloads/SDL2_mixer-devel-2.8.0-VC/SDL2_mixer-2.8.0/include
   OBJECT_DIR = CMakeFiles\SDL2TEST.dir
   OBJECT_FILE_DIR = CMakeFiles\SDL2TEST.dir
 
 build CMakeFiles/SDL2TEST.dir/Button.cpp.obj: CXX_COMPILER__SDL2TEST_unscanned_Debug C$:/Users/studentadmin/CLionProjects/SDL2TEST/Button.cpp || cmake_object_order_depends_target_SDL2TEST
   DEP_FILE = CMakeFiles\SDL2TEST.dir\Button.cpp.obj.d
   FLAGS = -g -std=gnu++20 -fdiagnostics-color=always
-  INCLUDES = -IC:/Users/studentadmin/SDL2/include -IC:/Users/studentadmin/CLionProjects/SDL2TEST -IC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/include -IC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/include
+  INCLUDES = -IC:/Users/studentadmin/SDL2/include -IC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/include -IC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/include -IC:/Users/studentadmin/Downloads/SDL2_mixer-devel-2.8.0-VC/SDL2_mixer-2.8.0/include
   OBJECT_DIR = CMakeFiles\SDL2TEST.dir
   OBJECT_FILE_DIR = CMakeFiles\SDL2TEST.dir
 
@@ -87,8 +87,8 @@ build CMakeFiles/SDL2TEST.dir/Button.cpp.obj: CXX_COMPILER__SDL2TEST_unscanned_D
 
 build SDL2TEST.exe: CXX_EXECUTABLE_LINKER__SDL2TEST_Debug CMakeFiles/SDL2TEST.dir/main.cpp.obj CMakeFiles/SDL2TEST.dir/RenderText.cpp.obj CMakeFiles/SDL2TEST.dir/RenderImage.cpp.obj CMakeFiles/SDL2TEST.dir/Button.cpp.obj
   FLAGS = -g
-  LINK_LIBRARIES = -lSDL2  -lSDL2main  -lSDL2_Image  -lSDL2_ttf  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
-  LINK_PATH = -LC:/Users/studentadmin/SDL2/lib/x64   -LC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/lib/x64   -LC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/lib/x64
+  LINK_LIBRARIES = -lSDL2  -lSDL2main  -lSDL2_image  -lSDL2_ttf  -lSDL2_mixer  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
+  LINK_PATH = -LC:/Users/studentadmin/SDL2/lib/x64   -LC:/Users/studentadmin/Downloads/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/lib/x64   -LC:/Users/studentadmin/Downloads/SDL2_ttf-devel-2.22.0-VC/SDL2_ttf-2.22.0/lib/x64   -LC:/Users/studentadmin/Downloads/SDL2_mixer-devel-2.8.0-VC/SDL2_mixer-2.8.0/lib/x64
   OBJECT_DIR = CMakeFiles\SDL2TEST.dir
   POST_BUILD = cd .
   PRE_LINK = cd .

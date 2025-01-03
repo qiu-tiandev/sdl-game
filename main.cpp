@@ -16,6 +16,7 @@
 #include <map>
 #include <algorithm>
 #include <vector>
+#include <SDL_mixer.h>
 //Namespaces
 using namespace std;
 using namespace SDL_Render_Image;
@@ -73,10 +74,6 @@ void stealTwoOfFirstItem(map<int, pair<int, int>>& inventory) {
 
     // If no items were found to steal
     cout << "No items to steal!" << endl;
-}
-void showFakeDeath()
-{
-
 }
 void addInventory(int item,int count)
 {
@@ -173,6 +170,7 @@ bool checkKey(char* key, SDL_Event event)
     {
         SDL_Keycode pressed = event.key.keysym.sym;
         const char* keyStr = SDL_GetKeyName(pressed);
+        cout << keyStr << endl;
         bool return_val = !strcmp(keyStr, key);
         return return_val;
     }
@@ -323,6 +321,7 @@ int main(int argc, char* argv[])
     unordered_map<int,char*>itemidNames;
     map<int,SDL_Texture*>numbers;
     unordered_map<int,SDL_Texture*>levelnums;
+    unordered_map<int,SDL_Texture*>itemNameTexture;
     itemidNames[0] = "Slowness Potion";
     itemidNames[1] = "Speed Potion";
     itemidNames[2] = "Diamond";
@@ -357,6 +356,10 @@ int main(int argc, char* argv[])
     trades[8] = {2,1,4,1};//troll trade
     trades[9] = {0,1,3,8};
     trades[10] = {1,1,3,8};
+    trades[11] = {6,5,5,1};
+    trades[12] = {6,5,1,1};
+    trades[13] = {6,5,0,1};
+    trades[14] = {4,6,5,1};
     scamtrades[1] = {3,6,0,1};
     scamtrades[2] = {3,9,5,1};
     scamtrades[3] = {5,2,2,1};
@@ -375,7 +378,7 @@ int main(int argc, char* argv[])
     int playery = 10;
     int movementcycles = 0;
     int maxnpc = 3;
-    int maxluckyblock = 10;
+    int maxluckyblock = 7;
     int luckyblockcount = 0;
     bool trade = false;
     bool tradeguiopen = false;
@@ -410,29 +413,36 @@ int main(int argc, char* argv[])
     int monstercyclereq = 30;
     int level = 1;
     bool obtainedgenerated = true;
-    bool updateLevel = false;
+    bool escfakedeath = false;
+    bool canPlay = false;
+    int movepx = 0;
+    int trashmovepx = 0;
+    bool showeffects = true;
+    bool mutemusic = false;
     vector<int> tradeno1;
     vector<int> tradeno2;
     random_device rd;
     mt19937 gen(rd());
-    discrete_distribution<> npcdistribuition {99.999 ,0.1};
+    discrete_distribution<> npcdistribuition {99.999, 0.03};
     uniform_int_distribution<> npccoordsgen(30,370);
-    discrete_distribution<> luckyblockgen{99.99,0.1};
+    discrete_distribution<> luckyblockgen{99.99,0.01};
     uniform_int_distribution<> luckyblockcoordgen{20,380};
     uniform_int_distribution<> number{0,1};
     discrete_distribution<>move{98,2};
     vector<int> traderTypepos = {43,15,25,17};
-    discrete_distribution<> luckyblockdecept{0,100};
+    discrete_distribution<> luckyblockdecept{93,7};
     discrete_distribution<> traderTypegen(traderTypepos.begin(),traderTypepos.end());
     array<char*,9>luckydecconsq = {"Tp","Speed","Slow","Damage","Death","Monster","Steal","Clear","MulSteal"};
-    discrete_distribution<>luckydeccongen{30,60,60,60,10,30,60,60,30};
-    uniform_int_distribution<>tradegen{1,10};
-    discrete_distribution<> scam{0,20};
+    discrete_distribution<>luckydeccongen{30,60,60,60,0,30,0,60,30};
+    uniform_int_distribution<>tradegen{1,14};
+    discrete_distribution<> scam{80,20};
     uniform_int_distribution<>scamtradesgen{1,7};
     uniform_int_distribution<>luckyblockpre{0,6};
     discrete_distribution<>luckyblockitemgen{53,20,9,6,6,4,2};
+    discrete_distribution<>trashgetchance{65,35};
+    uniform_int_distribution<>luckydecptmsgdist{0,2};
     int npccount = 0;
-    char* mode = "home";
+    char* mode = "tutorial";
     //Init sprite animations and positions
     //Front
     spritePos[0][1] ={0,0,16,24};
@@ -458,17 +468,21 @@ int main(int argc, char* argv[])
     potionpos["Speed"] = {0,0,32,32};
     potionpos["Slow"] = {0,32,32,32};
     //SDL INIT
-    SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO);
+    Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+    SDL_Init(SDL_INIT_VIDEO);
     IMG_Init(IMG_INIT_PNG|IMG_INIT_JPG|IMG_INIT_WEBP);
     SDL_Window* window = SDL_CreateWindow("Game",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED,600,600,SDL_WINDOW_RESIZABLE|SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_Event event;
     //SELF DEV LIB INIT
-    Button EnterGame(renderer,"../enter.png",190,300,200,100);
-    Button ExitGame(renderer,  "../quit.png",190,430,200,100);
+    Button EnterGame(renderer,"../enter.png",190,350,200,100);
+    Button ExitGame(renderer,  "../quit.png",190,450,200,100);
+    Button Info(renderer,"../Info.png",190,250,200,100);
     RenderImage render_image;
     RenderText rendertext;
     TTF_Init();
+    SDL_Surface* icon = IMG_Load("../icon.png");
+    SDL_SetWindowIcon(window,icon);
     SDL_RendererFlip spriteflip = SDL_FLIP_NONE;
     SDL_RendererFlip monstermoveflip = SDL_FLIP_NONE;
     SDL_Texture* background = render_image.createTexture(renderer, "../Grassfield.png");
@@ -486,7 +500,6 @@ int main(int argc, char* argv[])
     SDL_Texture* selected = render_image.createTexture(renderer,"../selected.png");
     SDL_Texture* potions = render_image.createTexture(renderer,"../Potions.png");
     SDL_Texture* effectsText = rendertext.CreateText(renderer,font_path,"Effects:", SDL_Color{65,105,225,255},100);
-    SDL_Texture* invcount;
     SDL_Texture* predecept;
     SDL_Texture* luckyblockresulttitle = rendertext.CreateText(renderer,"../px.ttf","Lucky Block Result",SDL_Color{77,64,52,255},16);
     SDL_Texture* postdecept;
@@ -503,6 +516,20 @@ int main(int argc, char* argv[])
     SDL_Texture* objectivetext = rendertext.CreateText(renderer,"../Roboto.ttf","Objective: Collect ",SDL_Color{255,255,255,255},100);
     SDL_Texture* slash = rendertext.CreateText(renderer,"../Roboto.ttf","/",SDL_Color{255,255,255,255},30);
     SDL_Texture* leveltext = rendertext.CreateText(renderer,"../Roboto.ttf","Level ",SDL_Color{255,255,255,255},100);
+    SDL_Texture* homebackground = render_image.createTexture(renderer,"../home_background.png");
+    SDL_Texture* joke = rendertext.CreateText(renderer,"../Roboto.ttf","Jk Its a joke, press esc to start playing",SDL_Color{255,255,255,255},100);
+    SDL_Texture* deathText;
+    SDL_Texture* restarttoplay = rendertext.CreateText(renderer,"../Roboto.ttf","Restart Game to play again.", SDL_Color{255,255,255,255},100);
+    vector<SDL_Texture*>luckyblockdeceptmsgs = {rendertext.CreateText(renderer,"../px.ttf","Deception Rule 329: Lucky Blocks are not always lucky",SDL_Color{255,255,255,255},100),rendertext.CreateText(renderer,"../px.ttf","Deception Rule 421: Lucky rewards do not mean great rewards",SDL_Color{255,255,255,255},100),rendertext.CreateText(renderer,"../px.ttf","Deception Rule 68419: Not all lucky blocks give you good luck",SDL_Color{255,255,255,255},100)};
+    SDL_Texture* gamelogo = render_image.createTexture(renderer,"../icon.png");
+    SDL_Texture* chosenmsg;
+    SDL_Texture* infotext = render_image.createTexture(renderer,"../Info_Text.png");
+    SDL_Texture* esctocontinue = rendertext.CreateText(renderer,"../Roboto.ttf", "Press Esc to continue",SDL_Color{255,255,255,255},100);
+    Mix_Music* bgm = Mix_LoadMUS("../bgm.mp3");
+    for (int i =0; i<7;i++)
+    {
+        itemNameTexture[i] = rendertext.CreateText(renderer,sans_path,itemidNames[i],SDL_Color{255,255,255,255},100);
+    }
     SDL_SetTextureAlphaMod(menubackground,175);
     uint32_t frameStart = SDL_GetTicks();
     uint32_t frameCount = 0;
@@ -529,6 +556,10 @@ int main(int argc, char* argv[])
     steady_clock::time_point traderScam;
     steady_clock::time_point givetime;
     steady_clock::time_point showCompleted;
+    steady_clock::time_point fakeDeathRealisation;
+    steady_clock::time_point decepteffectshow;
+    steady_clock::time_point regenTime;
+    steady_clock::time_point InfoClickTime;
     int elapsed;
     int elapsed2;
     itemTextures[2] = render_image.createTexture(renderer,"../Diamond.png");
@@ -548,10 +579,32 @@ int main(int argc, char* argv[])
         sprintf(buffer2,"%d",i);
         numbers[i] = rendertext.CreateText(renderer,sans_path,buffer2,SDL_Color{255,255,255,255},30);
     }
+    while (mode=="tutorial")
+    {
+        while (SDL_PollEvent(&event))
+        {
+            if (event.type == SDL_QUIT)
+            {
+                SDL_Quit();
+                return 0;
+            }
+            if (checkKey("Escape",event))
+            {
+                mode = "home";
+            }
+        }
+        SDL_SetRenderDrawColor(renderer,0,0,0,255);
+        SDL_RenderClear(renderer);
+        render_image.showImage(renderer,menu,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+        render_image.showImage(renderer,infotext,70,100,500,189,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+        rendertext.DrawText(renderer,esctocontinue,200,300,200,20);
+        SDL_RenderPresent(renderer);
+    }
     while (mode == "home")
     {
-        bool Enterclick = false;
-        bool Exitclick = false;
+        bool Enterclick= false;
+        bool Exitclick  = false;
+        bool infoclick = false;
         while (SDL_PollEvent(&event))
         {
 
@@ -571,11 +624,16 @@ int main(int argc, char* argv[])
                 ExitclickTime = steady_clock::now();
                 Exitclick = true;
             }
+            if (Info.checkClick(event,mousex,mousey))
+            {
+                InfoClickTime = steady_clock::now();
+                infoclick = true;
+            }
         }
-
-
         SDL_RenderClear(renderer);
         // Handling Enter Game Click
+        render_image.showImage(renderer,homebackground,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+        render_image.showImage(renderer,gamelogo,190,80,200,200,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
         auto EntertimeElapsed = duration_cast<milliseconds>(steady_clock::now() - EnterclickTime).count();
         if (EntertimeElapsed >400 && EntertimeElapsed < 450)
         {
@@ -625,7 +683,56 @@ int main(int argc, char* argv[])
     Button tradeBut(renderer,"../Trade_Button.png",162,345,270,64);
     //In Game
     vector<int>levelreq = generateLevel();//set level requirement
+    int deathOpacity =0;
+    steady_clock::time_point fakeplay = steady_clock::now();
+    while (duration_cast<milliseconds>(steady_clock::now() - fakeplay).count() < 600)
+    {
+        while (SDL_PollEvent(&event))
+        {
+            if (event.type == SDL_QUIT)
+            {
+                SDL_Quit();
+                return 0;
+            }
+        }
+        SDL_SetRenderDrawColor(renderer,0,0,0,255);
+        SDL_RenderClear(renderer);
+        render_image.showImage(renderer,background,0,0,600,600,NULL,NULL,NULL,NULL,SDL_FLIP_NONE);
+        SDL_RenderPresent(renderer);
+    }
+    fakeDeathRealisation = steady_clock::now();
+    while (!canPlay)
+    {
+        deathText = rendertext.CreateText(renderer,"../dec.ttf","YOU DIED",SDL_Color{136,8,8,255},200);
+        SDL_SetTextureAlphaMod(deathText,deathOpacity);
+        while (SDL_PollEvent(&event))
+        {
+            if (event.type == SDL_QUIT)
+            {
+                SDL_Quit();
+                return 0;
+            }
+            if (escfakedeath&&checkKey("Escape",event))
+            {
+                canPlay = true;
+            }
+        }
+        if (deathOpacity <255)deathOpacity++;
+        SDL_SetRenderDrawColor(renderer,0,0,0,255);
+        SDL_RenderClear(renderer);
+        if (duration_cast<milliseconds>(steady_clock::now()-fakeDeathRealisation).count() >3000)
+        {
+            rendertext.DrawText(renderer,joke,100,250,400,40);
+            escfakedeath = true;
+        }
+        rendertext.DrawText(renderer,deathText,85,50,400,100);
+        SDL_RenderPresent(renderer);
+        SDL_DestroyTexture(deathText);
+    }
     givetime = steady_clock::now();
+    Mix_VolumeMusic(60);
+    Mix_PlayMusic(bgm,-1);
+    regenTime = steady_clock::now();
     while (true)
     {
         timenow = steady_clock::now();
@@ -648,6 +755,14 @@ int main(int argc, char* argv[])
             cout << "NPC Number " << npccount << " generated at ("
      << npcpos[npccount-1].x << ", "
      << npcpos[npccount-1].y << ")" << endl;
+        }
+        if (duration_cast<milliseconds>(timenow-regenTime).count() == 5000)
+        {
+            if (healthstate!=1)
+            {
+                regenTime = steady_clock::now();
+                healthstate--;
+            }
         }
         //Generate Lucky blocks
         if (luckyblockgen(gen)&&luckyblockcount < maxluckyblock)
@@ -732,19 +847,26 @@ int main(int argc, char* argv[])
                 {
                     direction = 1;
                     playerx -=playerx >15?playerSpeed:0;
-
+                    movepx+=playerSpeed;
+                    trashmovepx += playerSpeed;
                 }else if ((checkKey("Right", event)|| checkKey("D", event))&& !tradeguiopen && !luckyblockopened)
                 {
                     direction = 2;
-                    playerx +=playerx<330?playerSpeed:0;
+                    playerx +=playerx<585?playerSpeed:0;
+                    movepx+=playerSpeed;
+                    trashmovepx += playerSpeed;
                 }else if ((checkKey("Up", event) || checkKey("W", event))&& !tradeguiopen&& !luckyblockopened)
                 {
                     direction = 3;
-                    playery -=playerSpeed;
+                    playery =playery>15?playerSpeed:0;
+                    movepx+=playerSpeed;
+                    trashmovepx += playerSpeed;
                 }else if ((checkKey("Down", event) || checkKey("S", event))&& !tradeguiopen&& !luckyblockopened)
                 {
                     direction = 0;
-                    playery +=playerSpeed;
+                    playery +=playery<450?playerSpeed:0;
+                    movepx+=playerSpeed;
+                    trashmovepx += playerSpeed;
                 }else if (checkKey("E", event)&& !luckyblockopened)
                 {
                     for (const auto& npc : npcpos)
@@ -768,6 +890,17 @@ int main(int argc, char* argv[])
                 }else if (displayObtained && checkKey("Escape",event))
                 {
                     displayObtained = false;
+                }else if (checkKey("M",event))
+                {
+                    if (mutemusic)
+                    {
+                        Mix_ResumeMusic();
+                        mutemusic = false;
+                    }else
+                    {
+                        Mix_PauseMusic();
+                        mutemusic = true;
+                    }
                 }
                 moving =true;
 
@@ -787,10 +920,18 @@ int main(int argc, char* argv[])
                 reqitemsobtained+=i.second.second;
             }
         }
-        //WARNING
-        if (duration_cast<milliseconds>(timenow-givetime).count() == 4000)
+        if (movepx >=750)
         {
-            addInventory(levelreq[1],levelreq[2]);
+            movepx-=750;
+            addInventory(4,1);
+        }
+        if (trashmovepx >=750)
+        {
+            trashmovepx-=750;
+            if (trashgetchance(gen))
+            {
+                addInventory(3,1);
+            }
         }
         npcnearfound = false;
         for (auto i:npcpos)
@@ -820,9 +961,36 @@ int main(int argc, char* argv[])
         {
             if (duration_cast<milliseconds>(steady_clock::now() - lastDamage).count() >= damagecooldown)
             {
-                healthstate%=7;
                 healthstate++;
                 lastDamage = steady_clock::now();
+            }
+        }
+        if (healthstate == 7)
+        {
+            deathOpacity = 0;
+            while (true){
+                deathText = rendertext.CreateText(renderer,"../dec.ttf","YOU DIED",SDL_Color{136,8,8,255},200);
+                SDL_SetTextureAlphaMod(deathText,deathOpacity);
+                while (SDL_PollEvent(&event))
+                {
+                    if (event.type == SDL_QUIT)
+                    {
+                        SDL_Quit();
+                        return 0;
+                    }
+                }
+                if (deathOpacity <255)deathOpacity++;
+                if (deathOpacity == 255)
+                {
+                    SDL_Quit();
+                    return 0;
+                }
+                SDL_SetRenderDrawColor(renderer,0,0,0,255);
+                SDL_RenderClear(renderer);
+                rendertext.DrawText(renderer,deathText,85,50,400,100);
+                rendertext.DrawText(renderer,restarttoplay,150,150,250,50);
+                SDL_RenderPresent(renderer);
+                SDL_DestroyTexture(deathText);
             }
         }
         if (speedactive)
@@ -864,7 +1032,7 @@ int main(int argc, char* argv[])
         array<int ,4> shown =spritePos[direction][animationnum];
         for (auto i = luckyblockpos.begin();i!=luckyblockpos.end();)
         {
-            if (checkCollision(playerx,playery,50,50,i->second.first,i->second.second,20,20)&& !luckyblockopened)
+            if (checkCollision(playerx,playery,50,50,i->second.first,i->second.second,20,20)&& !luckyblockopened && !tradeguiopen)
             {
                 if (luckyblockresult)
                 {
@@ -924,15 +1092,24 @@ int main(int argc, char* argv[])
                     SDL_DestroyTexture(predecept);
                     predecept = nullptr;
                 }
-                predecept = rendertext.CreateText(renderer,"../dec.ttf","Or did you?", SDL_Color{255,255,255,255},100);
+                predecept = rendertext.CreateText(renderer,"../dec.ttf","Or did you?", SDL_Color{136,8,8,255},100);
                 if (storyopacity <255)storyopacity++;
-                cout << "rendering or did you" << endl;
                 SDL_SetTextureAlphaMod(predecept,storyopacity);
                 rendertext.DrawText(renderer,predecept,200,100,200,60);
-            }else if (luckydecdisplay > 4000)
+            }else if (luckydecdisplay == 4000)
             {
+                decepteffectshow = steady_clock::now();
+                showeffects = true;
+                chosenmsg = luckyblockdeceptmsgs[luckydecptmsgdist(gen)];
                 applyluckydeceff = true;
                 storyopacity = 0;
+            }
+        }
+        if (showeffects)
+        {
+            if (duration_cast<milliseconds>(timenow-decepteffectshow).count()<1000)
+            {
+                rendertext.DrawText(renderer,chosenmsg,125,20,350,20);
             }
         }
         //Render the inventory slot
@@ -960,7 +1137,7 @@ int main(int argc, char* argv[])
         {
             auto lifespanelapsed = duration_cast<seconds>(steady_clock::now() - i->second.spawntime).count();
             //Despawn npc after 30s
-            if (lifespanelapsed > 10000)
+            if (lifespanelapsed > 45)
             {
                 npccount--;
                 cout << "Despawned" << endl;
@@ -1063,20 +1240,13 @@ int main(int argc, char* argv[])
             {
                 rendertext.DrawText(renderer,numbers[i.second.second],77+(i.first-1)*55,528,20,25);
             }
-            if (inventory[selectedSlot].first !=-1)//ERROR
+            if (inventory[selectedSlot].first !=-1)
             {
-                showitemName = rendertext.CreateText(renderer,sans_path,itemidNames[inventory[selectedSlot].first],SDL_Color{255,255,255,255},200);
-                rendertext.DrawText(renderer,showitemName,200,450,(strlen(itemidNames[inventory[selectedSlot].first])*14),45);
+                rendertext.DrawText(renderer,itemNameTexture[inventory[selectedSlot].first],200,450,(strlen(itemidNames[inventory[selectedSlot].first])*14),45);
             }
-            SDL_DestroyTexture(showitemName);
-            showitemName = nullptr;
         }
         if (checkLevelRequirements(inventory,levelreq))
         {
-            for (auto i:levelnums)
-            {
-                SDL_DestroyTexture(i.second);
-            }
             showCompleted = steady_clock::now();
             levelreq = generateLevel();
             cout << "cleared" << endl;
@@ -1084,9 +1254,10 @@ int main(int argc, char* argv[])
         if (duration_cast<milliseconds>(timenow-showCompleted).count()<1500)
         {
             rendertext.DrawText(renderer,lvlcompletedmsg,160,25,260,30);
-            updateLevel = true;
         }else if (duration_cast<milliseconds>(timenow-showCompleted).count()<1600)
         {
+            healthstate=1;
+            playerx,playery = 10;
             npcpos.clear();
             luckyblockpos.clear();
             inventory.clear();
@@ -1095,14 +1266,10 @@ int main(int argc, char* argv[])
             monster1.x = 300;
             monster1.y = 300;
             showLoading(renderer,event,"Loading lvl", sans_path, rendertext,1000);
-        }
-        if (updateLevel)
-        {
             levelnums.clear();
             level++;
             sprintf(buffer2,"%d",level);
             levelnums[level] = rendertext.CreateText(renderer,"../Roboto.ttf",buffer2,SDL_Color{255,255,255,255},100);
-            updateLevel=false;
         }
         rendertext.DrawText(renderer,objectivetext,200,50,100,15);
         rendertext.DrawText(renderer,numbersroboto[reqitemsobtained],300,50,10,15);
@@ -1137,6 +1304,12 @@ int main(int argc, char* argv[])
                 luckyblockpos.clear();
                 npcpos.clear();
                 cout << "All Npc and Luckyblocks cleared" << endl;
+            }else if (luckydectp == "MultiSteal")
+            {
+                stealTwoOfFirstItem(inventory);
+            }else if (luckydectp == "Damage")
+            {
+                healthstate+=1;
             }
             luckydectp = nullptr;
             luckydec,deceptiontimerset = false;
